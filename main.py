@@ -108,7 +108,7 @@ def geturl(file_path):
                         passages.append([key, title, date_str, passage['content_url']])
                 sum_data.extend(passages)
                 # 判断是否为10月后的公众号，若不是，则结束轮询爬取公众号标题的循环
-                if passages[len(passages)-1][2] < '2025-10-01':
+                if passages[len(passages)-1][2] < '2025-10-26':
                     break
                 else:
                     begin_index += page_num

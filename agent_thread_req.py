@@ -68,42 +68,57 @@ def process_chunk(chunk, chunk_index):
             # 手动解析 SSE 事件
             buffer = ''
             resp = ''
-            for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    try:
-                        # 确保以 UTF-8 解码
-                        buffer += chunk.decode('utf-8', errors='replace')
-                    except UnicodeDecodeError:
-                        # 如果UTF-8解码失败，尝试GBK
-                        try:
-                            buffer += chunk.decode('gbk', errors='ignore')
-                        except:
-                            # 最后尝试latin-1，它不会解码失败
-                            buffer += chunk.decode('latin-1', errors='ignore')
+            # for chunk in response.iter_content(chunk_size=1024):
+            #     if chunk:
+            #         try:
+            #             # 确保以 UTF-8 解码
+            #             buffer += chunk.decode('utf-8', errors='replace')
+            #         except UnicodeDecodeError:
+            #             # 如果UTF-8解码失败，尝试GBK
+            #             try:
+            #                 buffer += chunk.decode('gbk', errors='ignore')
+            #             except:
+            #                 # 最后尝试latin-1，它不会解码失败
+            #                 buffer += chunk.decode('latin-1', errors='ignore')
+            #
+            #         # 分割事件（事件由两个换行符分隔）
+            #         while '\n\n' in buffer:
+            #             event, buffer = buffer.split('\n\n', 1)
+            #             data = {}
+            #             for line in event.split('\n'):
+            #                 data_str = line
+            #                 if data_str.startswith('data:'):
+            #                     data_str = data_str.replace('data: ', '')
+            #                 try:
+            #                     data = json.loads(data_str)
+            #                     content_value = data["choices"][0]["delta"].get('content')
+            #                     if content_value is not None and content_value != 'end##end':
+            #                         if content_value == '<think>':
+            #                             content_value = '【思考过程】'
+            #                         elif content_value == '</think>':
+            #                             content_value = '【思考过程】'
+            #                         elif content_value == '<br />':
+            #                             content_value = '\n'
+            #                         resp += content_value
+            #                 except (json.JSONDecodeError, KeyError) as e:
+            #                     continue  # 跳过解析错误的行
 
-                    # 分割事件（事件由两个换行符分隔）
-                    while '\n\n' in buffer:
-                        event, buffer = buffer.split('\n\n', 1)
-                        data = {}
-                        for line in event.split('\n'):
-                            data_str = line
-                            if data_str.startswith('data:'):
-                                data_str = data_str.replace('data: ', '')
-                            try:
-                                data = json.loads(data_str)
-                                content_value = data["choices"][0]["delta"].get('content')
-                                if content_value is not None and content_value != 'end##end':
-                                    if content_value == '<think>':
-                                        content_value = '【思考过程】'
-                                    elif content_value == '</think>':
-                                        content_value = '【思考过程】'
-                                    elif content_value == '<br />':
-                                        content_value = '\n'
-                                    resp += content_value
-                            except (json.JSONDecodeError, KeyError) as e:
-                                continue  # 跳过解析错误的行
+            resp_str_list = response.text.split('\n\n')
+            for resp_str_item in resp_str_list:
+                if resp_str_item.startswith('data:'):
+                    resp_str_item = resp_str_item.replace('data: ', '')
+                try:
+                    data = json.loads(resp_str_item)
+                    content_value = data["choices"][0]["delta"].get('content')
+                    if content_value is not None and content_value != 'end##end':
+                        if content_value == '<br />':
+                            content_value = '\n'
+                        resp += content_value
+                except (json.JSONDecodeError, KeyError) as e:
+                    continue  # 跳过解析错误的行
+
             response.close()
-
+            print(resp)
             # 更安全地提取JSON部分
             try:
                 start_idx = resp.find('```json') + 7
@@ -116,7 +131,7 @@ def process_chunk(chunk, chunk_index):
                     data = json.loads(resp)
             except json.JSONDecodeError as e:
                 print(f"JSON解析错误: {e}")
-                print(f"原始响应: {resp}")
+                # print(f"原始响应: {resp}")
                 # 处理解析失败的情况
                 data = []
             if len(data) != 0:
@@ -178,8 +193,8 @@ def split_and_process(input_file, output_file, num_chunks=10):
 # 使用示例
 if __name__ == "__main__":
     root = 'D:/ipa/商机挖掘/公众号爬虫/'
-    input_excel = "20251023.xlsx"  # 输入文件
-    output_excel = "processed_result_20251023_1.xlsx"  # 输出文件
+    input_excel = "20251028.xlsx"  # 输入文件
+    output_excel = "processed_result_20251028.xlsx"  # 输出文件
 
     # 确保输入文件存在
     if not os.path.exists(root + input_excel):

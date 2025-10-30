@@ -36,20 +36,43 @@ for i in range(0, 5):
     # 发起POST请求，并传入headers参数
     response = requests.post(url, json=data, headers=headers)
 
+    # 手动解析 SSE 事件
+    buffer = ''
     resp = ''
-    resp_str_list = response.text.split('\n\n')
-    for resp_str_item in resp_str_list:
-        if resp_str_item.startswith('data:'):
-            resp_str_item = resp_str_item.replace('data: ', '')
-        try:
-            data = json.loads(resp_str_item)
-            content_value = data["choices"][0]["delta"].get('content')
-            if content_value is not None and content_value != 'end##end':
-                if content_value == '<br />':
-                    content_value = '\n'
-                resp += content_value
-        except (json.JSONDecodeError, KeyError) as e:
-            continue  # 跳过解析错误的行
+    for chunk in response.iter_content(chunk_size=1024):
+        if chunk:
+            try:
+                # 统一使用UTF-8解码，忽略错误字符
+                buffer += chunk.decode('utf-8', errors='ignore')
+            except UnicodeDecodeError:
+                # 如果UTF-8解码失败，尝试GBK
+                try:
+                    buffer += chunk.decode('gbk', errors='ignore')
+                except:
+                    # 最后尝试latin-1，它不会解码失败
+                    buffer += chunk.decode('latin-1', errors='ignore')
+
+            # 分割事件（事件由两个换行符分隔）
+            while '\n\n' in buffer:
+                event, buffer = buffer.split('\n\n', 1)
+                data = {}
+                for line in event.split('\n'):
+                    data_str = line
+                    if data_str.startswith('data:'):
+                        data_str = data_str.replace('data: ', '')
+                    try:
+                        data = json.loads(data_str)
+                        content_value = data["choices"][0]["delta"].get('content')
+                        if content_value is not None and content_value != 'end##end':
+                            if content_value == '<think>':
+                                content_value = '【思考过程】'
+                            elif content_value == '</think>':
+                                content_value = '【思考过程】'
+                            elif content_value == '<br />':
+                                content_value = '\n'
+                            resp += content_value
+                    except (json.JSONDecodeError, KeyError) as e:
+                        continue  # 跳过解析错误的行
 
     response.close()
 
