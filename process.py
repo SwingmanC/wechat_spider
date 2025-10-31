@@ -27,7 +27,7 @@ def geturl(file_path,root,output_file_name):
     df = pd.read_excel(file_path, sheet_name=0)
 
     wechat_accounts_fakeid = {}
-    for index,item in df.iterrows():
+    for index, item in df.iterrows():
         params1 = {
             'action': 'search_biz',
             'begin': '0',
@@ -52,7 +52,7 @@ def geturl(file_path,root,output_file_name):
             time.sleep(10)
             geturl(file_path)
             return 0
-    print(wechat_accounts_fakeid)
+    # print(wechat_accounts_fakeid)
     # 多个公众号的文章获取，每一个fakeid对应一个公众号，要爬取的公众号在setting中配置
     sum_data = []  # 用来存每一个公众号的文章链接
     response = None
@@ -110,16 +110,16 @@ def geturl(file_path,root,output_file_name):
                         passages.append([key, title, date_str, passage['content_url']])
                 sum_data.extend(passages)
                 # 判断是否为10月后的公众号，若不是，则结束轮询爬取公众号标题的循环
-                # if passages[len(passages)-1][2] < '2025-10-26':
-                #     break
-                # else:
-                #     begin_index += page_num
-                #     time.sleep(1)
-                break
+                if passages[len(passages)-1][2] < '2025-10-01':
+                    break
+                else:
+                    begin_index += page_num
+                    time.sleep(1)
+                # break
             except Exception as e:
                 print(f"发生异常: {e}")
                 break
-        time.sleep(2)
+        time.sleep(3)
 
     response.close()
 
@@ -133,14 +133,16 @@ def geturl(file_path,root,output_file_name):
 
         if os.path.exists(txt_dir_path + key) is False:
             os.mkdir(txt_dir_path + key)
+        try:
+            response = requests.get(item[3], headers=setting.headers, proxies=proxies, verify=False)
+            # 在这里处理正常响应的逻辑
+            soup = BeautifulSoup(response.text, 'lxml')
+            html_text = soup.text.replace(" ", "").replace("\n", "")
 
-        response = requests.get(item[3], headers=setting.headers, proxies=proxies, verify=False)
-        # 在这里处理正常响应的逻辑
-        soup = BeautifulSoup(response.text, 'lxml')
-        html_text = soup.text.replace(" ", "").replace("\n", "")
-
-        with open(txt_dir_path + key + '/' + item[1] + '.txt', 'w', encoding='utf-8') as f:
-            f.write(html_text)
+            with open(txt_dir_path + key + '/' + item[1] + '.txt', 'w', encoding='utf-8') as f:
+                f.write(html_text)
+        except:
+            continue
 
     result_df = pd.DataFrame(sum_data, columns=['公众号', '文章标题', '日期', '链接'])
     result_df.to_excel(root + 'output/' + output_file_name + '/' + output_file_name + '.xlsx', index=False)
@@ -187,9 +189,14 @@ def process_chunk(root, chunk, chunk_index):
         txt_path = root + account_name + '/' + title + '.txt'
 
         # 读取整个文件内容
-        with open(txt_path, 'r', encoding='utf-8') as file:
-            content = file.read()
+        content = ''
+        if os.path.exists(txt_path):
+            with open(txt_path, 'r', encoding='utf-8') as file:
+                content = file.read()
 
+        if content == '':
+            output.append(['', item['日期'], '', '', '', '', account_name, title, item['链接']])
+            continue
         try:
             # 定义要发送的数据
             request_id = generate_request_id()
@@ -204,7 +211,6 @@ def process_chunk(root, chunk, chunk_index):
             response = requests.post(url, json=data, headers=headers)
 
             # 手动解析 SSE 事件
-            buffer = ''
             resp = ''
 
             resp_str_list = response.text.split('\n\n')
@@ -234,26 +240,26 @@ def process_chunk(root, chunk, chunk_index):
                     # 如果没有找到代码块标记，尝试直接解析整个响应
                     data = json.loads(resp)
             except json.JSONDecodeError as e:
-                print(f"JSON解析错误: {e}")
-                # print(f"原始响应: {resp}")
+                # print(f"JSON解析错误: {e}")
+                print(f"原始响应: {resp}")
                 # 处理解析失败的情况
                 data = []
             if len(data) != 0:
+                print('解析成功：' + title)
                 for d in data:
                     output.append(
-                        [account_name, item['日期'], title, d['区县'], d['单位名称'], d['商机类型'], d['涉及金额'],
-                         d['概述'], item['链接']])
+                        [d['区县'], item['日期'], d['单位名称'], d['商机类型'], d['概述'], d['涉及金额'],
+                         account_name, title, item['链接']])
             else:
-                output.append([account_name, item['日期'], title, '', '', '', '', '', item['链接']])
+                output.append(['', item['日期'], '', '', '', '', account_name, title, item['链接']])
         except:
-            output.append([account_name, item['日期'], title, '', '', '', '', '', item['链接']])
+            output.append(['', item['日期'], '', '', '', '', account_name, title, item['链接']])
 
     output_df = pd.DataFrame(output,
-                             columns=['公众号', '发布日期', '文章标题', '区县', '单位名称', '商机类型', '涉及金额',
-                                      '概述', '链接'])
+                             columns=['区县', '发布日期', '单位名称', '商机类型', '商机概述', '涉及金额（万元）', '公众号', '文章标题', '链接'])
 
     # 示例处理：添加一列显示这是哪个块处理的
-    output_df['处理线程'] = f"线程-{chunk_index + 1}"
+    # output_df['处理线程'] = f"线程-{chunk_index + 1}"
     return output_df
 
 def split_and_process(root, input_file, output_file, num_chunks=10):
@@ -296,6 +302,7 @@ if __name__ == "__main__":
     root = 'D:/ipa/商机挖掘/'
     file_path = 'D:/ipa/商机挖掘/公众号v1.xlsx'
     output_file_name = datetime.now().strftime("%Y%m%d")
+    # output_file_name = '20251030'
 
     if os.path.exists(root + 'output/' + output_file_name) is False:
         os.mkdir(root + 'output/' + output_file_name)
