@@ -19,4 +19,4 @@ wx_token = '726542387'
 
 proxies = {'http': '112.80.248.73'}
 
-page_num = 5
+page_num = 10

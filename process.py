@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 import random
 import os
@@ -25,6 +25,8 @@ def geturl(file_path,root,output_file_name):
 
     txt_dir_path = root + '公众号爬虫/'
     df = pd.read_excel(file_path, sheet_name=0)
+
+    limit = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
 
     wechat_accounts_fakeid = {}
     for index, item in df.iterrows():
@@ -110,7 +112,7 @@ def geturl(file_path,root,output_file_name):
                         passages.append([key, title, date_str, passage['content_url']])
                 sum_data.extend(passages)
                 # 判断是否为10月后的公众号，若不是，则结束轮询爬取公众号标题的循环
-                if passages[len(passages)-1][2] < '2025-10-01':
+                if passages[len(passages)-1][2] < limit:
                     break
                 else:
                     begin_index += page_num
