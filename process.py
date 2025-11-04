@@ -7,6 +7,7 @@ import numpy as np
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
+from excel2database import upload
 import random
 import os
 
@@ -304,7 +305,6 @@ if __name__ == "__main__":
     root = 'D:/ipa/商机挖掘/'
     file_path = 'D:/ipa/商机挖掘/公众号v1.xlsx'
     output_file_name = datetime.now().strftime("%Y%m%d")
-    # output_file_name = '20251030'
 
     if os.path.exists(root + 'output/' + output_file_name) is False:
         os.mkdir(root + 'output/' + output_file_name)
@@ -315,3 +315,4 @@ if __name__ == "__main__":
     output_excel = root + 'output/' + output_file_name + '/output_' + output_file_name + '.xlsx' # 输出文件
 
     split_and_process(root, input_excel, output_excel, num_chunks=10)
+    upload(file_path=output_excel)
